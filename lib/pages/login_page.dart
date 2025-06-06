@@ -22,7 +22,7 @@ class _LoginPageState extends State<LoginPage> {
   String ?_email;
   String ?_password;
 
-  GlobalKey <FormState> _formKey = GlobalKey<FormState>();
+  final GlobalKey <FormState> _formKey = GlobalKey<FormState>();
   
 
   @override
@@ -44,7 +44,7 @@ class _LoginPageState extends State<LoginPage> {
   }
 
   Widget _loginPageUI() {
-    return Builder(builder: (BuildContext _context){
+    return Builder(builder: (BuildContext context){
       // SnackbarService.instance.buildContext = _context;
       // _auth = Provider.of<AuthProvider>(_context);    
       return Container(      
@@ -108,12 +108,12 @@ class _LoginPageState extends State<LoginPage> {
   Widget _emailTextField() {
     return TextFormField(
       autocorrect: false,
-      validator: (_input) {
-        return _input?.length != 0 && _input!.contains("@") ? null : "Please enter a valid email";
+      validator: (input) {
+        return input?.length != 0 && input!.contains("@") ? null : "Please enter a valid email";
       },
-      onSaved: (_input) {
+      onSaved: (input) {
         setState(() {
-          _email = _input;
+          _email = input;
         });
       },
       cursorColor: Colors.white,
@@ -129,12 +129,12 @@ class _LoginPageState extends State<LoginPage> {
   Widget _passwordTextField() {
     return TextFormField(
       autocorrect: false,
-      validator: (_input) {
-        return _input!.length >= 6 ? null : "Enter a password of at least 6 characters";
+      validator: (input) {
+        return input!.length >= 6 ? null : "Enter a password of at least 6 characters";
       },
-      onSaved: (_input) {
+      onSaved: (input) {
         setState(() {
-          _password = _input;
+          _password = input;
         });
       },
       obscureText: true,
@@ -149,11 +149,11 @@ class _LoginPageState extends State<LoginPage> {
   }
 
   Widget _loginButton() {
-    return Container(
+    return SizedBox(
       height: _deviceHeight! * 0.06,
       width: _deviceWidth,
       child: MaterialButton(onPressed: (){
-        if(_formKey!.currentState!.validate()){
+        if(_formKey.currentState!.validate()){
           print("Email: $_email");
           print("Password: $_password");  
           // _auth!.loginWithEmailAndPassword(_email!, _password!);

@@ -4,6 +4,8 @@ import 'package:lima_soko/pages/profile_page.dart'; // Import the new profile pa
 import 'package:lima_soko/pages/search_page.dart'; // Import the new search page
 
 class HomePage extends StatefulWidget{
+  const HomePage({super.key});
+
 
   @override
   State<StatefulWidget> createState() {
@@ -19,12 +21,12 @@ class ProductCard extends StatelessWidget {
   final String shippingPrice;
 
   const ProductCard({
-    Key? key,
+    super.key,
     required this.imageUrl,
     required this.title,
     required this.subtitle,
     required this.shippingPrice,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -95,7 +97,7 @@ class _HomePageState extends State<HomePage> {
   }
 
   // List of widgets for each bottom navigation tab
-  static List<Widget> _widgetOptions = <Widget>[
+  static final List<Widget> _widgetOptions = <Widget>[
     // Home Page Content
     SingleChildScrollView(
       child: Padding(

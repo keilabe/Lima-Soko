@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 class MarketplacePage extends StatefulWidget {
-  const MarketplacePage({Key? key}) : super(key: key);
+  const MarketplacePage({super.key});
 
   @override
   _MarketplacePageState createState() => _MarketplacePageState();

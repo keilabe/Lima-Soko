@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 class ProfilePage extends StatefulWidget {
-  const ProfilePage({Key? key}) : super(key: key);
+  const ProfilePage({super.key});
 
   @override
   _ProfilePageState createState() => _ProfilePageState();
@@ -10,7 +10,7 @@ class ProfilePage extends StatefulWidget {
 class _ProfilePageState extends State<ProfilePage> {
   // Example variable to hold the user profile image provider
   // Initialize with null or an actual image provider
-  AssetImage? _userProfileImage = AssetImage('assets/images/farmer1.jpg'); // Example: initially show an image
+  final AssetImage? _userProfileImage = AssetImage('assets/images/farmer1.jpg'); // Example: initially show an image
   // AssetImage? _userProfileImage = null; // Example: initially no image, show icon
 
   @override
@@ -74,7 +74,7 @@ class _ProfilePageState extends State<ProfilePage> {
 class ProfileOptionTile extends StatelessWidget {
   final String title;
 
-  const ProfileOptionTile({Key? key, required this.title}) : super(key: key);
+  const ProfileOptionTile({super.key, required this.title});
 
   @override
   Widget build(BuildContext context) {

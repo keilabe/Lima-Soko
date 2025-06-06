@@ -47,7 +47,7 @@ class _SplashScreenState extends State<SplashScreen> {
   }
 
   Widget _introTextAndImage() {
-    return Container(
+    return SizedBox(
       width: _deviceWidth! * 0.8,
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -76,7 +76,7 @@ class _SplashScreenState extends State<SplashScreen> {
   }
 
   Widget _introText() {
-    return Container(
+    return SizedBox(
       width: _deviceWidth! * 0.8,
       child: Column(
         children: [
@@ -108,7 +108,7 @@ class _SplashScreenState extends State<SplashScreen> {
   }
 
   Widget _shopNowButton() {
-    return Container(
+    return SizedBox(
       width: _deviceWidth,
       height: _deviceHeight! * 0.06,
       child: ElevatedButton(

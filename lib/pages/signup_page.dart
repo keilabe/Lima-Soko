@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
 class SignupPage extends StatefulWidget {
+  const SignupPage({super.key});
+
 
 @override
   State<StatefulWidget> createState() {
@@ -111,10 +113,10 @@ class _SignupPageState extends State<SignupPage> {
     Widget _nameTextField() {
      return TextFormField(
       autocorrect: false,
-      validator: (_input) {
-        return _input?.length != 0 ? null : "Please enter a valid name";
+      validator: (input) {
+        return input?.length != 0 ? null : "Please enter a valid name";
       },
-      onSaved: (_input) {
+      onSaved: (input) {
         setState(() {});
       },
       cursorColor: Colors.white,
@@ -130,10 +132,10 @@ class _SignupPageState extends State<SignupPage> {
   Widget _emailTextField(){
      return TextFormField(
       autocorrect: false,
-      validator: (_input) {
-        return _input?.length != 0 && _input!.contains("@") ? null : "Please enter a valid email";
+      validator: (input) {
+        return input?.length != 0 && input!.contains("@") ? null : "Please enter a valid email";
       },
-      onSaved: (_input) {
+      onSaved: (input) {
         setState(() {});
       },
       cursorColor: Colors.white,
@@ -149,10 +151,10 @@ class _SignupPageState extends State<SignupPage> {
   Widget _passwordTextField() {
     return TextFormField(
       autocorrect: false,
-      validator: (_input) {
-        return _input!.length >= 6 ? null : "Enter a password of at least 6 characters";
+      validator: (input) {
+        return input!.length >= 6 ? null : "Enter a password of at least 6 characters";
       },
-      onSaved: (_input) {
+      onSaved: (input) {
         setState(() {});
       },
       obscureText: true,
@@ -167,7 +169,7 @@ class _SignupPageState extends State<SignupPage> {
   }
 
     Widget _signUpButton() {
-    return Container(
+    return SizedBox(
       height: _deviceHeight! * 0.06,
       width: _deviceWidth,
       child: MaterialButton(onPressed: (){

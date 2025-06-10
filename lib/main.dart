@@ -64,21 +64,27 @@ class MyApp extends StatefulWidget {
 }
 
 class _MyAppState extends State<MyApp> {
+  final _navigatorKey = GlobalKey<NavigatorState>();
+
   @override
   void initState() {
     super.initState();
-    widget.supabaseService.client.auth.onAuthStateChange.listen((data) {
-      final event = data.event;
-      if (event == AuthChangeEvent.signedOut) {
-        Navigator.of(context).pushReplacementNamed('/login');
-      } else if (event == AuthChangeEvent.signedIn || event == AuthChangeEvent.initialSession) {
-        _redirect();
-      }
+    // Delay the auth state listener to ensure MaterialApp is initialized
+    Future.delayed(Duration.zero, () {
+      widget.supabaseService.client.auth.onAuthStateChange.listen((data) {
+        final event = data.event;
+        if (event == AuthChangeEvent.signedOut) {
+          _navigatorKey.currentState?.pushReplacementNamed('/login');
+        } else if (event == AuthChangeEvent.signedIn || event == AuthChangeEvent.initialSession) {
+          _redirect();
+        }
+      });
     });
   }
 
   Future<void> _redirect() async {
-    await Future.delayed(Duration.zero);
+    if (!mounted) return;
+    
     final currentUser = widget.supabaseService.client.auth.currentUser;
     if (currentUser != null) {
       try {
@@ -89,16 +95,16 @@ class _MyAppState extends State<MyApp> {
             .single();
         final role = response['role'] as String;
         if (role == 'farmer') {
-          if (mounted) Navigator.of(context).pushReplacementNamed('/farmer-home');
+          _navigatorKey.currentState?.pushReplacementNamed('/farmer-home');
         } else if (role == 'buyer') {
-          if (mounted) Navigator.of(context).pushReplacementNamed('/home');
+          _navigatorKey.currentState?.pushReplacementNamed('/home');
         }
       } catch (e) {
         print('Error fetching user role on auth state change: $e');
-        if (mounted) Navigator.of(context).pushReplacementNamed('/login');
+        _navigatorKey.currentState?.pushReplacementNamed('/login');
       }
     } else {
-      if (mounted) Navigator.of(context).pushReplacementNamed('/login');
+      _navigatorKey.currentState?.pushReplacementNamed('/login');
     }
   }
 
@@ -146,6 +152,7 @@ class _MyAppState extends State<MyApp> {
             darkTheme: themeProvider.darkTheme,
             themeMode: themeProvider.themeMode,
             debugShowCheckedModeBanner: false,
+            navigatorKey: _navigatorKey,
             initialRoute: widget.initialRoute,
             routes: {
               '/login': (context) => const LoginPage(),

@@ -4,6 +4,9 @@ import 'package:lima_soko/presentation/providers/cart_provider.dart';
 import 'package:lima_soko/presentation/providers/payment_provider.dart';
 import 'package:lima_soko/presentation/providers/user_provider.dart';
 import 'package:lima_soko/domain/entities/payment.dart';
+import 'package:lima_soko/core/services/supabase_service.dart';
+import 'package:lima_soko/presentation/providers/order_provider.dart';
+import 'package:lima_soko/domain/entities/order.dart';
 
 class CheckoutPage extends StatefulWidget {
   const CheckoutPage({super.key});
@@ -14,6 +17,21 @@ class CheckoutPage extends StatefulWidget {
 
 class _CheckoutPageState extends State<CheckoutPage> {
   final TextEditingController _phoneNumberController = TextEditingController();
+  late final SupabaseService _supabaseService;
+  bool _isInitialized = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _initializeSupabase();
+  }
+
+  Future<void> _initializeSupabase() async {
+    _supabaseService = await SupabaseService.getInstance();
+    setState(() {
+      _isInitialized = true;
+    });
+  }
 
   @override
   void dispose() {
@@ -21,8 +39,22 @@ class _CheckoutPageState extends State<CheckoutPage> {
     super.dispose();
   }
 
+  Future<bool> _verifyUserSession() async {
+    if (!_isInitialized) return false;
+    final session = _supabaseService.client.auth.currentSession;
+    return session != null;
+  }
+
   @override
   Widget build(BuildContext context) {
+    if (!_isInitialized) {
+      return const Scaffold(
+        body: Center(
+          child: CircularProgressIndicator(),
+        ),
+      );
+    }
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Checkout'),
@@ -85,7 +117,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
                                       overflow: TextOverflow.ellipsis,
                                     ),
                                     Text('Quantity: ${item.quantity}'),
-                                    Text('Price: \$${(item.product.price * item.quantity).toStringAsFixed(2)}'),
+                                    Text('Price: KSh ${(item.product.price * item.quantity).toStringAsFixed(2)}'),
                                   ],
                                 ),
                               ),
@@ -105,7 +137,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
                       style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                     ),
                     Text(
-                      '\$${cartProvider.totalAmount.toStringAsFixed(2)}',
+                      'KSh ${cartProvider.totalAmount.toStringAsFixed(2)}',
                       style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.green),
                     ),
                   ],
@@ -135,21 +167,50 @@ class _CheckoutPageState extends State<CheckoutPage> {
                               return;
                             }
 
-                            if (userProvider.currentUser == null) {
+                            final isAuthenticated = await _verifyUserSession();
+                            if (!isAuthenticated) {
                               ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(content: Text('User not logged in.')),
+                                SnackBar(
+                                  content: Text('Your session has expired. Please log in again.'),
+                                  action: SnackBarAction(
+                                    label: 'Login',
+                                    onPressed: () {
+                                      Navigator.of(context).pushReplacementNamed('/login');
+                                    },
+                                  ),
+                                ),
                               );
                               return;
                             }
 
                             try {
-                              // For simplicity, using a dummy orderId. In a real app,
-                              // you'd create an order in your database first.
-                              const dummyOrderId = 'order-123';
+                              final orderProvider = Provider.of<OrderProvider>(context, listen: false);
+                              final userId = userProvider.currentUser?.id;
+
+                              if (userId == null) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(content: Text('User not logged in or ID not found.')),
+                                );
+                                return;
+                              }
+
+                              final newOrder = await orderProvider.createOrder(
+                                userId: userId,
+                                items: cartProvider.items.values.toList(),
+                                totalAmount: cartProvider.totalAmount,
+                              );
+
+                              if (newOrder == null || newOrder.id == null) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(content: Text('Failed to create order.')),
+                                );
+                                return;
+                              }
+
                               await paymentProvider.initiatePayment(
                                 phoneNumber: _phoneNumberController.text,
                                 amount: cartProvider.totalAmount,
-                                orderId: dummyOrderId,
+                                orderId: newOrder.id!,
                               );
 
                               if (paymentProvider.currentPayment?.status == PaymentStatus.pending) {
@@ -161,12 +222,18 @@ class _CheckoutPageState extends State<CheckoutPage> {
                                 Navigator.of(context).popUntil((route) => route.isFirst);
                               } else if (paymentProvider.errorMessage != null) {
                                 ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(content: Text('Payment error: ${paymentProvider.errorMessage}')),
+                                  SnackBar(
+                                    content: Text(paymentProvider.errorMessage!),
+                                  ),
+                                );
+                              } else {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(content: Text('Payment processing failed.')),
                                 );
                               }
                             } catch (e) {
                               ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(content: Text('An unexpected error occurred: ${e.toString()}')),
+                                SnackBar(content: Text('Payment error: ${e.toString()}')),
                               );
                             }
                           },
@@ -177,7 +244,10 @@ class _CheckoutPageState extends State<CheckoutPage> {
                     ),
                     child: paymentProvider.isLoading
                         ? const CircularProgressIndicator(color: Colors.white)
-                        : const Text('Proceed to Payment', style: TextStyle(fontSize: 18)),
+                        : const Text(
+                            'Proceed to Payment',
+                            style: TextStyle(fontSize: 18),
+                          ),
                   ),
                 ),
               ],

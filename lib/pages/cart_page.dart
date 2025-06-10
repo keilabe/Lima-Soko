@@ -41,7 +41,7 @@ class CartPage extends StatelessWidget {
                               : 'https://via.placeholder.com/100',
                           title: item.product.name,
                           weightType: 'Weight: ${item.product.weights.isNotEmpty ? item.product.weights[0] : "N/A"}',
-                          price: '\$${item.product.price.toStringAsFixed(2)}',
+                          price: 'KSh ${item.product.price.toStringAsFixed(2)}',
                           quantity: item.quantity,
                           onQuantityChanged: (newQuantity) {
                             cart.updateQuantity(item.product.id, newQuantity);
@@ -63,7 +63,7 @@ class CartPage extends StatelessWidget {
                         style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                       ),
                       Text(
-                        '\$${cart.totalAmount.toStringAsFixed(2)}',
+                        'KSh ${cart.totalAmount.toStringAsFixed(2)}',
                         style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                       ),
                     ],

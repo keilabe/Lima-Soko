@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../core/services/supabase_service.dart';
 
 class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key});
@@ -8,10 +9,34 @@ class ProfilePage extends StatefulWidget {
 }
 
 class _ProfilePageState extends State<ProfilePage> {
-  // Example variable to hold the user profile image provider
-  // Initialize with null or an actual image provider
-  final AssetImage? _userProfileImage = AssetImage('assets/images/farmer1.jpg'); // Example: initially show an image
-  // AssetImage? _userProfileImage = null; // Example: initially no image, show icon
+  final AssetImage? _userProfileImage = AssetImage('assets/images/farmer1.jpg');
+  late final SupabaseService _supabaseService;
+
+  @override
+  void initState() {
+    super.initState();
+    _initializeSupabase();
+  }
+
+  Future<void> _initializeSupabase() async {
+    _supabaseService = await SupabaseService.getInstance();
+  }
+
+  Future<void> _signOut() async {
+    try {
+      await _supabaseService.client.auth.signOut();
+      // Navigation will be handled by the auth state listener in main.dart
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error signing out: ${e.toString()}'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -19,14 +44,14 @@ class _ProfilePageState extends State<ProfilePage> {
       appBar: AppBar(
         backgroundColor: Colors.deepOrange,
         leading: IconButton(
-          icon: Icon(Icons.menu, color: Colors.white), // Menu icon
+          icon: Icon(Icons.menu, color: Colors.white),
           onPressed: () {
             // TODO: Implement menu functionality
           },
         ),
         title: Text(
-          'My Profile', // Title from the image
-          style: TextStyle(color: Colors.white), // White text
+          'My Profile',
+          style: TextStyle(color: Colors.white),
         ),
         centerTitle: true,
       ),
@@ -35,31 +60,56 @@ class _ProfilePageState extends State<ProfilePage> {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              // Profile Picture
               CircleAvatar(
-                radius: 60, // Adjust size as needed
-                backgroundImage: _userProfileImage, // Use the state variable
+                radius: 60,
+                backgroundImage: _userProfileImage,
                 child: _userProfileImage == null
-                    ? Icon(Icons.person, size: 60, color: Colors.grey[600]) // Show icon if no image
-                    : null, // Set to null if image is available
+                    ? Icon(Icons.person, size: 60, color: Colors.grey[600])
+                    : null,
               ),
               SizedBox(height: 16),
-              // User Name
               Text(
-                'Emma Johnson', // Replace with actual user name
+                'Emma Johnson',
                 style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
               ),
               SizedBox(height: 24),
-              // Profile Options List
               ListView(
-                shrinkWrap: true, // Important to wrap content
-                physics: NeverScrollableScrollPhysics(), // Disable ListView scrolling as it's in a SingleChildScrollView
+                shrinkWrap: true,
+                physics: NeverScrollableScrollPhysics(),
                 children: [
                   ProfileOptionTile(title: 'My Listings'),
                   ProfileOptionTile(title: 'My Purchases'),
                   ProfileOptionTile(title: 'Order Tracking'),
                   ProfileOptionTile(title: 'Account Settings'),
-                  ProfileOptionTile(title: 'Sign Out'),
+                  ProfileOptionTile(
+                    title: 'Sign Out',
+                    onTap: () {
+                      showDialog(
+                        context: context,
+                        builder: (BuildContext context) {
+                          return AlertDialog(
+                            title: Text('Sign Out'),
+                            content: Text('Are you sure you want to sign out?'),
+                            actions: [
+                              TextButton(
+                                child: Text('Cancel'),
+                                onPressed: () {
+                                  Navigator.of(context).pop();
+                                },
+                              ),
+                              TextButton(
+                                child: Text('Sign Out'),
+                                onPressed: () {
+                                  Navigator.of(context).pop();
+                                  _signOut();
+                                },
+                              ),
+                            ],
+                          );
+                        },
+                      );
+                    },
+                  ),
                 ],
               ),
             ],
@@ -70,22 +120,24 @@ class _ProfilePageState extends State<ProfilePage> {
   }
 }
 
-// Helper widget for profile options
 class ProfileOptionTile extends StatelessWidget {
   final String title;
+  final VoidCallback? onTap;
 
-  const ProfileOptionTile({super.key, required this.title});
+  const ProfileOptionTile({
+    super.key, 
+    required this.title,
+    this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
     return Card(
-      margin: EdgeInsets.symmetric(horizontal: 16.0, vertical: 4.0), // Spacing
+      margin: EdgeInsets.symmetric(horizontal: 16.0, vertical: 4.0),
       child: ListTile(
         title: Text(title),
         trailing: Icon(Icons.chevron_right),
-        onTap: () {
-          // TODO: Implement navigation for each option
-        },
+        onTap: onTap,
       ),
     );
   }

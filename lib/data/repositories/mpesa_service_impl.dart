@@ -1,11 +1,12 @@
 import 'dart:convert';
-
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:http/http.dart' as http;
 import 'package:lima_soko/core/services/supabase_service.dart';
 import 'package:lima_soko/domain/entities/payment.dart';
 import 'package:lima_soko/domain/repositories/mpesa_service.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:uuid/uuid.dart';
+import 'dart:developer' as developer;
 
 class MpesaServiceImpl implements MpesaService {
   final SupabaseClient _supabaseClient;
@@ -13,27 +14,53 @@ class MpesaServiceImpl implements MpesaService {
 
   MpesaServiceImpl(this._supabaseClient, this._supabaseService);
 
-  // Placeholder for M-Pesa API base URL and consumer key/secret
-  // In a real application, these would be loaded securely from environment variables
-  static const String _mpesaBaseUrl = 'https://sandbox.safaricom.co.ke/mpesa/';
-  static const String _consumerKey = 'YOUR_MPESA_CONSUMER_KEY';
-  static const String _consumerSecret = 'YOUR_MPESA_CONSUMER_SECRET';
-  static const String _lipaNaMpesaShortcode = '174379'; // Paybill or Till Number
-  static const String _lipaNaMpesaPasskey = 'bfb279f9aa9bdbcf158e97dd71a467cd2e0c893059b107ed920b8cdfdce1797c'; // Lipa Na M-Pesa Online Passkey
-  static const String _callbackUrl = 'https://your-app.supabase.co/functions/v1/mpesa-callback'; // Your Supabase Edge Function URL
+  // M-Pesa API configuration from environment variables
+  String get _mpesaBaseUrl => dotenv.env['MPESA_BASE_URL'] ?? 'https://sandbox.safaricom.co.ke/';
+  String get _consumerKey => dotenv.env['MPESA_CONSUMER_KEY'] ?? '';
+  String get _consumerSecret => dotenv.env['MPESA_CONSUMER_SECRET'] ?? '';
+  String get _lipaNaMpesaShortcode => dotenv.env['MPESA_SHORTCODE'] ?? '174379';
+  String get _lipaNaMpesaPasskey => dotenv.env['MPESA_PASSKEY'] ?? '';
+  String get _callbackUrl => dotenv.env['MPESA_CALLBACK_URL'] ?? '';
 
   Future<String> _getAccessToken() async {
-    final String credentials = base64Encode(utf8.encode('$_consumerKey:$_consumerSecret'));
-    final response = await http.get(
-      Uri.parse('${_mpesaBaseUrl}oauth/v1/generate?grant_type=client_credentials'),
-      headers: {'Authorization': 'Basic $credentials'},
-    );
+    developer.log('Starting M-Pesa access token request', name: 'MpesaService');
+    
+    if (_consumerKey.isEmpty || _consumerSecret.isEmpty) {
+      developer.log('M-Pesa credentials not configured', name: 'MpesaService', error: 'Missing credentials');
+      throw Exception('M-Pesa credentials not configured. Please check your environment variables.');
+    }
 
-    if (response.statusCode == 200) {
-      final data = json.decode(response.body);
-      return data['access_token'] as String;
-    } else {
-      throw Exception('Failed to get M-Pesa access token: ${response.body}');
+    try {
+      final String credentials = base64Encode(utf8.encode('$_consumerKey:$_consumerSecret'));
+      developer.log('Sending access token request to M-Pesa', name: 'MpesaService');
+      
+      final response = await http.get(
+        Uri.parse('${_mpesaBaseUrl}oauth/v1/generate?grant_type=client_credentials'),
+        headers: {'Authorization': 'Basic $credentials'},
+      );
+
+      developer.log('Received response from M-Pesa auth endpoint', 
+        name: 'MpesaService',
+        error: 'Status code: ${response.statusCode}'
+      );
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        developer.log('Successfully obtained access token', name: 'MpesaService');
+        return data['access_token'] as String;
+      } else {
+        developer.log('Failed to get access token', 
+          name: 'MpesaService',
+          error: 'Response: ${response.body}'
+        );
+        throw Exception('Failed to get M-Pesa access token: ${response.body}');
+      }
+    } catch (e) {
+      developer.log('Error during access token request', 
+        name: 'MpesaService',
+        error: e.toString()
+      );
+      rethrow;
     }
   }
 
@@ -44,100 +71,202 @@ class MpesaServiceImpl implements MpesaService {
     required String orderId,
     required String userId,
   }) async {
-    final accessToken = await _getAccessToken();
-    final timestamp = DateTime.now().toIso8601String().replaceAll(RegExp(r'[^0-9]'), '').substring(0, 14);
-    final password = base64Encode(utf8.encode('$_lipaNaMpesaShortcode$_lipaNaMpesaPasskey$timestamp'));
+    developer.log('Initiating STK Push', 
+      name: 'MpesaService',
+      error: 'Phone: $phoneNumber, Amount: $amount, OrderId: $orderId'
+    );
 
-    final response = await http.post(
-      Uri.parse('${_mpesaBaseUrl}stkpush/v1/processrequest'),
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': 'Bearer $accessToken',
-      },
-      body: json.encode({
+    try {
+      final accessToken = await _getAccessToken();
+      developer.log('Got access token, preparing STK Push request', name: 'MpesaService');
+
+      final timestamp = DateTime.now().toIso8601String().replaceAll(RegExp(r'[^0-9]'), '').substring(0, 14);
+      final password = base64Encode(utf8.encode('$_lipaNaMpesaShortcode$_lipaNaMpesaPasskey$timestamp'));
+
+      final requestBody = {
         'BusinessShortCode': _lipaNaMpesaShortcode,
         'Password': password,
         'Timestamp': timestamp,
-        'TransactionType': 'CustomerPayBillOnline', // or 'CustomerBuyGoodsOnline'
-        'Amount': amount.toInt(), // M-Pesa API expects integer for amount
-        'PartyA': phoneNumber, // Phone number initiating the transaction
+        'TransactionType': 'CustomerPayBillOnline',
+        'Amount': amount.toInt(),
+        'PartyA': phoneNumber,
         'PartyB': _lipaNaMpesaShortcode,
         'PhoneNumber': phoneNumber,
         'CallBackURL': _callbackUrl,
-        'AccountReference': orderId, // Or any unique reference for the transaction
+        'AccountReference': orderId,
         'TransactionDesc': 'Payment for order $orderId',
-      }),
-    );
+      };
 
-    if (response.statusCode == 200) {
-      final responseData = json.decode(response.body);
-      final transactionId = responseData['CheckoutRequestID'] as String;
-      final resultCode = responseData['ResponseCode'] as String;
+      developer.log('Sending STK Push request to M-Pesa', 
+        name: 'MpesaService',
+        error: 'Request body: ${json.encode(requestBody)}'
+      );
 
-      if (resultCode == '0') {
-        // STK Push initiated successfully, create a pending payment record
-        final newPayment = Payment(
-          id: const Uuid().v4(),
-          userId: userId,
-          orderId: orderId,
-          amount: amount,
-          transactionId: transactionId,
-          status: PaymentStatus.pending,
-          createdAt: DateTime.now(),
-          updatedAt: DateTime.now(),
-        );
+      final response = await http.post(
+        Uri.parse('${_mpesaBaseUrl}mpesa/stkpush/v1/processrequest'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $accessToken',
+        },
+        body: json.encode(requestBody),
+      );
 
-        await _supabaseClient.from('payments').insert(newPayment.toJson());
-        return newPayment;
+      developer.log('Received STK Push response', 
+        name: 'MpesaService',
+        error: 'Status code: ${response.statusCode}, Body: ${response.body}'
+      );
+
+      if (response.statusCode == 200) {
+        final responseData = json.decode(response.body);
+        final transactionId = responseData['CheckoutRequestID'] as String;
+        final resultCode = responseData['ResponseCode'] as String;
+
+        if (resultCode == '0') {
+          developer.log('STK Push initiated successfully', 
+            name: 'MpesaService',
+            error: 'Transaction ID: $transactionId'
+          );
+
+          final newPayment = Payment(
+            id: const Uuid().v4(),
+            userId: userId,
+            orderId: orderId,
+            amount: amount,
+            transactionId: transactionId,
+            status: PaymentStatus.pending,
+            createdAt: DateTime.now(),
+            updatedAt: DateTime.now(),
+          );
+
+          developer.log('Creating payment record in database', name: 'MpesaService');
+          await _supabaseClient.from('payments').insert(newPayment.toJson());
+          developer.log('Payment record created successfully', name: 'MpesaService');
+
+          return newPayment;
+        } else {
+          developer.log('STK Push failed', 
+            name: 'MpesaService',
+            error: 'Response: ${responseData['ResponseDescription']}'
+          );
+          throw Exception('M-Pesa STK Push failed: ${responseData['ResponseDescription']}');
+        }
       } else {
-        throw Exception('M-Pesa STK Push failed: ${responseData['ResponseDescription']}');
+        developer.log('Failed to initiate STK Push', 
+          name: 'MpesaService',
+          error: 'Response: ${response.body}'
+        );
+        throw Exception('Failed to initiate M-Pesa STK Push: ${response.body}');
       }
-    } else {
-      throw Exception('Failed to initiate M-Pesa STK Push: ${response.body}');
+    } catch (e) {
+      developer.log('Error during STK Push', 
+        name: 'MpesaService',
+        error: e.toString()
+      );
+      rethrow;
     }
   }
 
   @override
   Future<Payment> getPaymentStatus(String transactionId) async {
-    final accessToken = await _getAccessToken();
-    final timestamp = DateTime.now().toIso8601String().replaceAll(RegExp(r'[^0-9]'), '').substring(0, 14);
-    final password = base64Encode(utf8.encode('$_lipaNaMpesaShortcode$_lipaNaMpesaPasskey$timestamp'));
+    developer.log('Checking payment status', 
+      name: 'MpesaService',
+      error: 'Transaction ID: $transactionId'
+    );
 
-    final response = await http.post(
-      Uri.parse('${_mpesaBaseUrl}stkpushquery/v1/query'),
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': 'Bearer $accessToken',
-      },
-      body: json.encode({
+    try {
+      final accessToken = await _getAccessToken();
+      developer.log('Got access token for status check', name: 'MpesaService');
+
+      final timestamp = DateTime.now().toIso8601String().replaceAll(RegExp(r'[^0-9]'), '').substring(0, 14);
+      final password = base64Encode(utf8.encode('$_lipaNaMpesaShortcode$_lipaNaMpesaPasskey$timestamp'));
+
+      final requestBody = {
         'BusinessShortCode': _lipaNaMpesaShortcode,
         'Password': password,
         'Timestamp': timestamp,
         'CheckoutRequestID': transactionId,
-      }),
-    );
+      };
 
-    if (response.statusCode == 200) {
-      final responseData = json.decode(response.body);
-      final resultCode = responseData['ResultCode'] as String;
+      developer.log('Sending payment status request', 
+        name: 'MpesaService',
+        error: 'Request body: ${json.encode(requestBody)}'
+      );
 
-      if (resultCode == '0') {
-        // Payment completed successfully
-        await _supabaseClient.from('payments').update({'status': PaymentStatus.completed.toString().split('.').last, 'updated_at': DateTime.now().toIso8601String()}).eq('transaction_id', transactionId);
-        final paymentData = await _supabaseClient.from('payments').select().eq('transaction_id', transactionId).single();
-        return Payment.fromJson(paymentData);
-      } else if (resultCode == '1037' || resultCode == '2001' || resultCode == '1032') {
-        // Payment pending or user cancelled
-        final paymentData = await _supabaseClient.from('payments').select().eq('transaction_id', transactionId).single();
-        return Payment.fromJson(paymentData);
+      final response = await http.post(
+        Uri.parse('${_mpesaBaseUrl}mpesa/stkpushquery/v1/query'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $accessToken',
+        },
+        body: json.encode(requestBody),
+      );
+
+      developer.log('Received payment status response', 
+        name: 'MpesaService',
+        error: 'Status code: ${response.statusCode}, Body: ${response.body}'
+      );
+
+      if (response.statusCode == 200) {
+        final responseData = json.decode(response.body);
+        final resultCode = responseData['ResultCode'] as String;
+
+        developer.log('Processing payment status result', 
+          name: 'MpesaService',
+          error: 'Result code: $resultCode'
+        );
+
+        if (resultCode == '0') {
+          developer.log('Payment completed successfully', name: 'MpesaService');
+          await _supabaseClient.from('payments').update({
+            'status': PaymentStatus.completed.toString().split('.').last,
+            'updated_at': DateTime.now().toIso8601String()
+          }).eq('transaction_id', transactionId);
+          
+          final paymentData = await _supabaseClient.from('payments')
+            .select()
+            .eq('transaction_id', transactionId)
+            .single();
+          
+          return Payment.fromJson(paymentData);
+        } else if (resultCode == '1037' || resultCode == '2001' || resultCode == '1032') {
+          developer.log('Payment pending or user cancelled', 
+            name: 'MpesaService',
+            error: 'Result code: $resultCode'
+          );
+          final paymentData = await _supabaseClient.from('payments')
+            .select()
+            .eq('transaction_id', transactionId)
+            .single();
+          return Payment.fromJson(paymentData);
+        } else {
+          developer.log('Payment failed', 
+            name: 'MpesaService',
+            error: 'Result code: $resultCode'
+          );
+          await _supabaseClient.from('payments').update({
+            'status': PaymentStatus.failed.toString().split('.').last,
+            'updated_at': DateTime.now().toIso8601String()
+          }).eq('transaction_id', transactionId);
+          
+          final paymentData = await _supabaseClient.from('payments')
+            .select()
+            .eq('transaction_id', transactionId)
+            .single();
+          return Payment.fromJson(paymentData);
+        }
       } else {
-        // Payment failed
-        await _supabaseClient.from('payments').update({'status': PaymentStatus.failed.toString().split('.').last, 'updated_at': DateTime.now().toIso8601String()}).eq('transaction_id', transactionId);
-        final paymentData = await _supabaseClient.from('payments').select().eq('transaction_id', transactionId).single();
-        return Payment.fromJson(paymentData);
+        developer.log('Failed to get payment status', 
+          name: 'MpesaService',
+          error: 'Response: ${response.body}'
+        );
+        throw Exception('Failed to get M-Pesa payment status: ${response.body}');
       }
-    } else {
-      throw Exception('Failed to get M-Pesa payment status: ${response.body}');
+    } catch (e) {
+      developer.log('Error during payment status check', 
+        name: 'MpesaService',
+        error: e.toString()
+      );
+      rethrow;
     }
   }
 } 

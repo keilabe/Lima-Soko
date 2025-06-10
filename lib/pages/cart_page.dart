@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../presentation/providers/cart_provider.dart';
 
 class CartPage extends StatelessWidget {
   const CartPage({super.key});
@@ -9,97 +11,97 @@ class CartPage extends StatelessWidget {
       child: Scaffold(
         appBar: AppBar(
           leading: IconButton(
-            icon: Icon(Icons.arrow_back),
+            icon: const Icon(Icons.arrow_back),
             onPressed: () {
               Navigator.pop(context);
             },
           ),
-          title: Text('Your Cart'),
+          title: const Text('Your Cart'),
         ),
-        body: Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Placeholder for Cart Items List
-              Expanded(
-                child: ListView(
-                  children: [
-                    // Example Cart Item 1 (Fresh Tomatoes)
-                    CartItem(
-                      imageUrl: 'https://via.placeholder.com/100', // Replace with actual image
-                      title: 'Fresh Tomatoes',
-                      weightType: 'Weight: Type: Organic',
-                      price: '\$3',
-                    ),
-                    SizedBox(height: 16),
-                    // Example Cart Item 2 (Green Lettuce)
-                    CartItem(
-                      imageUrl: 'https://via.placeholder.com/100', // Replace with actual image
-                      title: 'Green Lettuce',
-                      weightType: 'Weight: Type: Organic',
-                      price: '\$2',
-                    ),                  
-                    SizedBox(height: 16),
-                    // Example Cart Item 3 (Cucumbers)
-                     CartItem(
-                      imageUrl: 'https://via.placeholder.com/100', // Replace with actual image
-                      title: 'Cucumbers',
-                      weightType: 'Weight: Type: Fresh',
-                      price: '\$4',
-                    ),
-                     SizedBox(height: 16),
-                    // Add more items as needed
-                  ],
-                ),
-              ),
-              SizedBox(height: 20),
-              // Subtotal
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        body: Consumer<CartProvider>(
+          builder: (context, cart, child) {
+            if (cart.items.isEmpty) {
+              return const Center(
+                child: Text('Your cart is empty'),
+              );
+            }
+            return Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    'Subtotal',
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  Expanded(
+                    child: ListView.builder(
+                      itemCount: cart.items.length,
+                      itemBuilder: (context, index) {
+                        final item = cart.items.values.toList()[index];
+                        return CartItem(
+                          imageUrl: item.product.images.isNotEmpty 
+                              ? item.product.images[0] 
+                              : 'https://via.placeholder.com/100',
+                          title: item.product.name,
+                          weightType: 'Weight: ${item.product.weights.isNotEmpty ? item.product.weights[0] : "N/A"}',
+                          price: '\$${item.product.price.toStringAsFixed(2)}',
+                          quantity: item.quantity,
+                          onQuantityChanged: (newQuantity) {
+                            cart.updateQuantity(item.product.id, newQuantity);
+                          },
+                          onRemove: () {
+                            cart.removeItem(item.product.id);
+                          },
+                        );
+                      },
+                    ),
                   ),
-                  Text(
-                    '\$9', // Placeholder value
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  const SizedBox(height: 20),
+                  // Subtotal
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text(
+                        'Subtotal',
+                        style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                      ),
+                      Text(
+                        '\$${cart.totalAmount.toStringAsFixed(2)}',
+                        style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 20),
+                  // Checkout Button
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton(
+                      onPressed: () {
+                        Navigator.of(context).pushNamed('/checkout');
+                      },
+                      style: ElevatedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 15),
+                        backgroundColor: Colors.green[700],
+                        foregroundColor: Colors.white,
+                      ),
+                      child: const Text('Checkout', style: TextStyle(fontSize: 18)),
+                    ),
                   ),
                 ],
               ),
-              SizedBox(height: 20),
-              // Checkout Button
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  onPressed: () {
-                    // TODO: Implement checkout logic
-                  },
-                  style: ElevatedButton.styleFrom(
-                    padding: EdgeInsets.symmetric(vertical: 15), backgroundColor: Colors.amber[300] // Example button color
-                  ),
-                  child: Text(
-                    'Checkout',
-                    style: TextStyle(fontSize: 18, color: Colors.black87),
-                  ),
-                ),
-              ),
-            ],
-          ),
+            );
+          },
         ),
-        // BottomNavigationBar is handled in HomePage, so no need to include here
       ),
     );
   }
 }
 
-// Helper widget for individual cart items
-class CartItem extends StatefulWidget {
+class CartItem extends StatelessWidget {
   final String imageUrl;
   final String title;
   final String weightType;
   final String price;
+  final int quantity;
+  final Function(int) onQuantityChanged;
+  final VoidCallback onRemove;
 
   const CartItem({
     super.key,
@@ -107,94 +109,77 @@ class CartItem extends StatefulWidget {
     required this.title,
     required this.weightType,
     required this.price,
+    required this.quantity,
+    required this.onQuantityChanged,
+    required this.onRemove,
   });
 
   @override
-  _CartItemState createState() => _CartItemState();
-}
-
-class _CartItemState extends State<CartItem> {
-  int _quantity = 1; // Default quantity
-
-  void _incrementQuantity() {
-    setState(() {
-      _quantity++;
-    });
-  }
-
-  void _decrementQuantity() {
-    setState(() {
-      if (_quantity > 1) {
-        _quantity--;
-      }
-    });
-  }
-
-  @override
   Widget build(BuildContext context) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        // Item Image
-        Image.network(
-          widget.imageUrl,
-          width: 80,
-          height: 80,
-          fit: BoxFit.cover,
-          errorBuilder: (context, error, stackTrace) => Container(
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16.0),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Item Image
+          Image.network(
+            imageUrl,
             width: 80,
             height: 80,
-            color: Colors.grey[300],
-            child: Icon(Icons.broken_image, size: 40, color: Colors.grey[600]),
+            fit: BoxFit.cover,
+            errorBuilder: (context, error, stackTrace) => Container(
+              width: 80,
+              height: 80,
+              color: Colors.grey[300],
+              child: Icon(Icons.broken_image, size: 40, color: Colors.grey[600]),
+            ),
           ),
-        ),
-        SizedBox(width: 16),
-        // Item Details
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                widget.title,
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-              ),
-              SizedBox(height: 4),
-              Text(
-                widget.weightType,
-                style: TextStyle(fontSize: 14, color: Colors.grey[600]),
-              ),
-              SizedBox(height: 8),
-              Row(
-                children: [
-                  // Quantity Selector
-                  IconButton(
-                    icon: Icon(Icons.remove_circle_outline, size: 20),
-                    onPressed: _decrementQuantity,
-                  ),
-                  Text('$_quantity'),
-                  IconButton(
-                    icon: Icon(Icons.add_circle_outline, size: 20),
-                    onPressed: _incrementQuantity,
-                  ),
-                  // Trash Icon (appears next to quantity in image)
-                  SizedBox(width: 8),
-                  IconButton(
-                    icon: Icon(Icons.delete_outline, size: 20),
-                    onPressed: () {
-                      // TODO: Implement item removal
-                    },
-                  ),
-                ],
-              ),
-            ],
+          const SizedBox(width: 16),
+          // Item Details
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  weightType,
+                  style: TextStyle(fontSize: 14, color: Colors.grey[600]),
+                ),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    // Quantity Selector
+                    IconButton(
+                      icon: const Icon(Icons.remove_circle_outline, size: 20),
+                      onPressed: () => onQuantityChanged(quantity - 1),
+                    ),
+                    Text('$quantity'),
+                    IconButton(
+                      icon: const Icon(Icons.add_circle_outline, size: 20),
+                      onPressed: () => onQuantityChanged(quantity + 1),
+                    ),
+                    // Trash Icon
+                    const SizedBox(width: 8),
+                    IconButton(
+                      icon: const Icon(Icons.delete_outline, size: 20),
+                      onPressed: onRemove,
+                    ),
+                  ],
+                ),
+              ],
+            ),
           ),
-        ),
-        // Item Price
-        Text(
-          widget.price,
-          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-        ),
-      ],
+          // Item Price
+          Text(
+            price,
+            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+          ),
+        ],
+      ),
     );
   }
 } 

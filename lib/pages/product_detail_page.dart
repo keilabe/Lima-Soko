@@ -1,7 +1,14 @@
 import 'package:flutter/material.dart';
+import '../domain/entities/product.dart'; // Import Product entity
+import '../core/utils/color_converter.dart'; // Import color converter
 
 class ProductDetailPage extends StatelessWidget {
-  const ProductDetailPage({super.key});
+  final Product product;
+
+  const ProductDetailPage({
+    super.key,
+    required this.product,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -13,7 +20,7 @@ class ProductDetailPage extends StatelessWidget {
             Navigator.pop(context);
           },
         ),
-        title: Text('Product detail'),
+        title: Text(product.name), // Use product name for title
         actions: [
           IconButton(
             icon: Icon(Icons.favorite_border), // Heart icon
@@ -29,13 +36,13 @@ class ProductDetailPage extends StatelessWidget {
           children: [
             // Product Image
             Image.network(
-              'https://via.placeholder.com/400x300', // Replace with actual product image
+              product.images.isNotEmpty ? product.images[0] : 'https://via.placeholder.com/400x300', // Use actual product image
               width: double.infinity,
               fit: BoxFit.cover,
               errorBuilder: (context, error, stackTrace) => Container(
                 height: 300,
                 color: Colors.grey[300],
-                child: Icon(Icons.broken_image, size: 80, color: Colors.grey[600]),
+                child: const Center(child: Icon(Icons.broken_image, size: 80, color: Colors.grey)),
               ),
             ),
             Padding(
@@ -46,14 +53,16 @@ class ProductDetailPage extends StatelessWidget {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      // Product Title
-                      Text(
-                        'Farm Fresh Tomatoes', // Replace with actual product title
-                        style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+                      Expanded(
+                        child: Text(
+                          product.name, // Use actual product title
+                          style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+                          overflow: TextOverflow.ellipsis, // Add ellipsis for overflow
+                          maxLines: 2, // Limit to 2 lines
+                        ),
                       ),
-                      // Product Price
                       Text(
-                        '\$3 per lb', // Replace with actual price
+                        '\${product.price.toStringAsFixed(2)} per lb', // Use actual price
                         style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.green[700]),
                       ),
                     ],
@@ -62,19 +71,24 @@ class ProductDetailPage extends StatelessWidget {
                   // Star Rating and Reviews
                   Row(
                     children: [
-                      Icon(Icons.star, color: Colors.amber, size: 18),
-                      Icon(Icons.star, color: Colors.amber, size: 18),
-                      Icon(Icons.star, color: Colors.amber, size: 18),
-                      Icon(Icons.star_half, color: Colors.amber, size: 18),
-                      Icon(Icons.star_border, color: Colors.amber, size: 18),
+                      ...List.generate(product.rating.floor(), (index) => Icon(Icons.star, color: Colors.amber, size: 18)),
+                      if (product.rating - product.rating.floor() > 0) Icon(Icons.star_half, color: Colors.amber, size: 18),
+                      ...List.generate(5 - product.rating.ceil(), (index) => Icon(Icons.star_border, color: Colors.amber, size: 18)),
                       SizedBox(width: 4),
-                      Text('4.5 (29 reviews)', style: TextStyle(fontSize: 14, color: Colors.grey[600])),
+                      Expanded(
+                        child: Text(
+                          '\${product.rating} (\${product.reviews} reviews)',
+                          style: TextStyle(fontSize: 14, color: Colors.grey[600]),
+                          overflow: TextOverflow.ellipsis, // Add ellipsis for overflow
+                          maxLines: 1, // Limit to 1 line
+                        ),
+                      ),
                     ],
                   ),
                   SizedBox(height: 16),
                   // Product Description
                   Text(
-                    'These tomatoes are vine-ripened and bursting with flavor.', // Replace with actual description
+                    product.description, // Use actual description
                     style: TextStyle(fontSize: 16, color: Colors.grey[800]),
                   ),
                   // 'more' button placeholder
@@ -97,41 +111,20 @@ class ProductDetailPage extends StatelessWidget {
                   Row(
                     children: [
                       // Placeholder for variety circles
-                      Container(
-                        width: 24,
-                        height: 24,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          border: Border.all(color: Colors.grey, width: 1),
-                        ),
-                      ),
-                      SizedBox(width: 8),
-                      Container(
-                        width: 24,
-                        height: 24,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: Colors.grey[400],
-                        ),
-                      ),
-                      SizedBox(width: 8),
-                       Container(
-                        width: 24,
-                        height: 24,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: Colors.grey[400],
-                        ),
-                      ),
-                      SizedBox(width: 8),
-                       Container(
-                        width: 24,
-                        height: 24,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: Colors.grey[400],
-                        ),
-                      ),
+                      ...product.varieties.map((colorString) =>
+                         Padding(
+                           padding: const EdgeInsets.only(right: 8.0),
+                           child: Container(
+                            width: 24,
+                            height: 24,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: getColorFromString(colorString), // Use global function
+                              border: Border.all(color: Colors.grey, width: 1),
+                            ),
+                                                 ),
+                         ),
+                      ).toList(),
                     ],
                   ),
                   SizedBox(height: 16),
@@ -148,13 +141,13 @@ class ProductDetailPage extends StatelessWidget {
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: DropdownButton<String>(
-                      value: '1', // Placeholder value
+                      value: product.weights.isNotEmpty ? product.weights[0] : null, // Use actual product weight
                       icon: Icon(Icons.arrow_drop_down),
                       underline: SizedBox(), // Remove underline
                       onChanged: (String? newValue) {
                         // TODO: Implement weight selection logic
                       },
-                      items: <String>['1', '2', '3', '4'].map<DropdownMenuItem<String>>((String value) {
+                      items: product.weights.map<DropdownMenuItem<String>>((String value) {
                         return DropdownMenuItem<String>(
                           value: value,
                           child: Text(value),
@@ -188,5 +181,20 @@ class ProductDetailPage extends StatelessWidget {
       ),
       // BottomNavigationBar is handled in HomePage, so no need to include here
     );
+  }
+
+  Color getColorFromString(String colorString) {
+    switch (colorString.toLowerCase()) {
+      case 'red':
+        return Colors.red;
+      case 'green':
+        return Colors.green;
+      case 'yellow':
+        return Colors.yellow;
+      case 'brown':
+        return Colors.brown;
+      default:
+        return Colors.grey;
+    }
   }
 } 

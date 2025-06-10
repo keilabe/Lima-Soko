@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import '../core/services/supabase_service.dart';
+import 'dart:developer' as developer;
 
 // import 'package:provider/provider.dart';
 
@@ -14,27 +16,75 @@ class LoginPage extends StatefulWidget {
 }
 
 class _LoginPageState extends State<LoginPage> {
-  double ?_deviceHeight;
-  double ?_deviceWidth;
+  double? _deviceHeight;
+  double? _deviceWidth;
+  String? _email;
+  String? _password;
+  bool _isLoading = false;
+  String? _error;
+  final _formKey = GlobalKey<FormState>();
 
-  // AuthProvider ?_auth;
+  Future<void> _signIn() async {
+    if (!_formKey.currentState!.validate()) return;
 
-  String ?_email;
-  String ?_password;
+    setState(() {
+      _isLoading = true;
+      _error = null;
+    });
 
-  final GlobalKey <FormState> _formKey = GlobalKey<FormState>();
-  
+    try {
+      developer.log('Starting login process for email: $_email');
+      final supabaseService = await SupabaseService.getInstance();
+      
+      // Sign in the user
+      developer.log('Attempting to sign in...');
+      await supabaseService.signIn(_email!, _password!);
+      developer.log('User signed in successfully');
+
+      // Get user profile to check role
+      developer.log('Fetching user profile...');
+      final userProfile = await supabaseService.querySingle<Map<String, dynamic>>(
+        table: 'profiles',
+        column: 'id',
+        operator: 'eq',
+        value: supabaseService.userId,
+      );
+
+      if (userProfile == null) {
+        developer.log('User profile not found');
+        throw Exception('User profile not found');
+      }
+
+      developer.log('User profile found with role: ${userProfile['role']}');
+
+      if (mounted) {
+        // Navigate based on role
+        if (userProfile['role'] == 'farmer') {
+          developer.log('Navigating to farmer home page');
+          Navigator.pushReplacementNamed(context, '/farmer-home');
+        } else {
+          developer.log('Navigating to buyer home page');
+          Navigator.pushReplacementNamed(context, '/home');
+        }
+      }
+    } catch (e) {
+      developer.log('Error during login process: $e', error: e);
+      setState(() {
+        _error = e.toString().replaceAll('Exception: ', '');
+      });
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
-    _deviceHeight = MediaQuery
-        .of(context)
-        .size
-        .height;
-    _deviceWidth = MediaQuery
-        .of(context)
-        .size
-        .width;
+    _deviceHeight = MediaQuery.of(context).size.height;
+    _deviceWidth = MediaQuery.of(context).size.width;
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: Align(
@@ -44,26 +94,25 @@ class _LoginPageState extends State<LoginPage> {
   }
 
   Widget _loginPageUI() {
-    return Builder(builder: (BuildContext context){
-      // SnackbarService.instance.buildContext = _context;
-      // _auth = Provider.of<AuthProvider>(_context);    
-      return Container(      
-      padding: EdgeInsets.symmetric(horizontal: _deviceWidth! * 0.10),
-      height: _deviceHeight! * 0.60,
-      alignment: Alignment.center,
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-        mainAxisSize: MainAxisSize.max,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _headerText(),
-          _loginForm(),
-          _loginButton(),
-          _registerButton(),
-        ],
-      )
-    );
-    }
+    return Builder(
+      builder: (BuildContext _context) {
+        return Container(
+          padding: EdgeInsets.symmetric(horizontal: _deviceWidth! * 0.10),
+          height: _deviceHeight! * 0.60,
+          alignment: Alignment.center,
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+            mainAxisSize: MainAxisSize.max,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _headerText(),
+              _loginForm(),
+              _loginButton(),
+              _registerButton(),
+            ],
+          ),
+        );
+      },
     );
   }
 
@@ -76,7 +125,7 @@ class _LoginPageState extends State<LoginPage> {
         children: [
           Text(
             "Welcome back!",
-                style: TextStyle(fontSize: 34, fontWeight: FontWeight.w700),
+            style: TextStyle(fontSize: 34, fontWeight: FontWeight.w700),
           ),
           Text(
             "Please login to your account",
@@ -90,17 +139,17 @@ class _LoginPageState extends State<LoginPage> {
   Widget _loginForm() {
     return Form(
       key: _formKey,
-      onChanged: (){
+      onChanged: () {
         _formKey.currentState?.save();
       },
       child: Column(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         mainAxisSize: MainAxisSize.max,
         crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        _emailTextField(),
-        _passwordTextField(),
-      ],
+        children: [
+          _emailTextField(),
+          _passwordTextField(),
+        ],
       ),
     );
   }
@@ -108,12 +157,14 @@ class _LoginPageState extends State<LoginPage> {
   Widget _emailTextField() {
     return TextFormField(
       autocorrect: false,
-      validator: (input) {
-        return input?.length != 0 && input!.contains("@") ? null : "Please enter a valid email";
+      validator: (_input) {
+        return _input?.length != 0 && _input!.contains("@")
+            ? null
+            : "Please enter a valid email";
       },
-      onSaved: (input) {
+      onSaved: (_input) {
         setState(() {
-          _email = input;
+          _email = _input;
         });
       },
       cursorColor: Colors.white,
@@ -121,7 +172,7 @@ class _LoginPageState extends State<LoginPage> {
         hintText: "Email Address",
         focusedBorder: UnderlineInputBorder(
           borderSide: BorderSide(color: Colors.white),
-        )
+        ),
       ),
     );
   }
@@ -129,69 +180,70 @@ class _LoginPageState extends State<LoginPage> {
   Widget _passwordTextField() {
     return TextFormField(
       autocorrect: false,
-      validator: (input) {
-        return input!.length >= 6 ? null : "Enter a password of at least 6 characters";
+      validator: (_input) {
+        return _input!.length >= 6
+            ? null
+            : "Enter a password of at least 6 characters";
       },
-      onSaved: (input) {
+      onSaved: (_input) {
         setState(() {
-          _password = input;
+          _password = _input;
         });
       },
       obscureText: true,
       cursorColor: Colors.white,
       decoration: InputDecoration(
-          hintText: "Password",
-          focusedBorder: UnderlineInputBorder(
-            borderSide: BorderSide(color: Colors.white),
-          )
+        hintText: "Password",
+        focusedBorder: UnderlineInputBorder(
+          borderSide: BorderSide(color: Colors.white),
+        ),
       ),
     );
   }
 
   Widget _loginButton() {
-    return SizedBox(
+    return Container(
       height: _deviceHeight! * 0.06,
       width: _deviceWidth,
-      child: MaterialButton(onPressed: (){
-        if(_formKey.currentState!.validate()){
-          print("Email: $_email");
-          print("Password: $_password");  
-          // _auth!.loginWithEmailAndPassword(_email!, _password!);
-        }
-      },
+      child: MaterialButton(
+        onPressed: _isLoading ? null : _signIn,
         color: Color.fromRGBO(255, 142, 5, 1),
-        child: Text(
-          'LOGIN',
-          style: TextStyle(fontSize: 25, fontWeight: FontWeight.w200),
-          ),
+        child: _isLoading
+            ? const CircularProgressIndicator(color: Colors.white)
+            : Text(
+                'LOGIN',
+                style: TextStyle(fontSize: 25, fontWeight: FontWeight.w200),
+              ),
       ),
     );
   }
 
   Widget _registerButton() {
     return GestureDetector(
-      onTap: (){},
-        child: Container(
-      height: _deviceHeight! * 0.06,
-      width: _deviceWidth,
-      decoration: BoxDecoration(
-        border: Border.all(
-          color: Colors.black,          
+      onTap: () {
+        Navigator.pushNamed(context, '/signup');
+      },
+      child: Container(
+        height: _deviceHeight! * 0.06,
+        width: _deviceWidth,
+        decoration: BoxDecoration(
+          border: Border.all(
+            color: Colors.black,
+          ),
+          borderRadius: BorderRadius.circular(15),
         ),
-        borderRadius: BorderRadius.circular(15),
-      ),
-      child: Center(
-        child: Text(
+        child: Center(
+          child: Text(
             "REGISTER",
-                textAlign: TextAlign.center,
-                style: TextStyle(
-            fontSize: 20,
-                  fontWeight: FontWeight.w700,
-                  color: Colors.green,
-        ),
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.w700,
+              color: Colors.green,
+            ),
+          ),
         ),
       ),
-        ),
     );
   }
 }

@@ -71,6 +71,18 @@ class _FarmerUploadProducePageState extends State<FarmerUploadProducePage> {
               controller: _priceController,
               keyboardType: TextInputType.numberWithOptions(decimal: true),
               decoration: InputDecoration(
+                hintText: 'Enter the weight in KG',
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              ),
+            ),
+            SizedBox(height: 8),
+            TextField(
+              controller: _priceController,
+              keyboardType: TextInputType.numberWithOptions(decimal: true),
+              decoration: InputDecoration(
                 hintText: 'Enter price',
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(8),

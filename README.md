@@ -1,3 +1,62 @@
+# Lima Soko
+
+A Flutter application for agricultural marketplace.
+
+## Environment Setup
+
+To run this project, you need to set up your environment variables. Create a `.env` file in the root directory of the project with the following variables:
+
+```env
+# Supabase Configuration
+SUPABASE_URL=your_supabase_project_url
+SUPABASE_ANON_KEY=your_supabase_anon_key
+
+# M-Pesa Configuration
+MPESA_BASE_URL=https://sandbox.safaricom.co.ke/
+MPESA_CONSUMER_KEY=your_mpesa_consumer_key
+MPESA_CONSUMER_SECRET=your_mpesa_consumer_secret
+MPESA_SHORTCODE=174379
+MPESA_PASSKEY=your_mpesa_passkey
+MPESA_CALLBACK_URL=your_callback_url
+```
+
+### How to Generate Your Own Values:
+
+1. **Supabase Configuration**:
+   - Create your own project on [Supabase](https://supabase.com)
+   - Go to Project Settings > API
+   - Copy your `Project URL` and `anon public` key
+   - Replace `your_supabase_project_url` and `your_supabase_anon_key` with your actual values
+
+2. **M-Pesa Configuration**:
+   - Register for your own Safaricom Developer account at [Safaricom Developer Portal](https://developer.safaricom.co.ke/)
+   - Create your own app to get your Consumer Key and Consumer Secret
+   - Replace `your_mpesa_consumer_key` and `your_mpesa_consumer_secret` with your actual values
+   - The Shortcode (174379) is for sandbox testing. For production, you'll need your own Shortcode from Safaricom
+   - Generate your own Passkey from your Safaricom Developer account
+   - Set up your own callback URL for your application
+   - Replace `your_mpesa_passkey` and `your_callback_url` with your actual values
+
+### Important Notes:
+- Never commit your `.env` file to version control
+- Keep your API keys and secrets secure
+- The M-Pesa configuration uses sandbox URLs by default. For production, you'll need to update the `MPESA_BASE_URL` to the production URL
+- Each developer needs to generate their own unique values - do not share or reuse these credentials
+
+## Getting Started
+
+This project is a starting point for a Flutter application.
+
+A few resources to get you started if this is your first Flutter project:
+
+- [Lab: Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
+- [Cookbook: Useful Flutter samples](https://docs.flutter.dev/cookbook)
+
+For help getting started with Flutter development, view the
+[online documentation](https://docs.flutter.dev/), which offers tutorials,
+samples, guidance on mobile development, and a full API reference.
+
+
 # Application Flow Diagram
 
 Below is a Mermaid diagram describing the application flow, including authentication, user roles, buyer/farmer flows, and integration with Supabase, M-Pesa API, and Edge Functions:
